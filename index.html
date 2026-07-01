@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
@@ -227,6 +226,19 @@
         .filter-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
         .filter-bar .input-field { width: auto; min-width: 200px; }
 
+        /* Profile Preview */
+        .profile-preview {
+            padding: 2rem; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: var(--radius-sm); color: white; text-align: center; margin-bottom: 1.5rem;
+            box-shadow: 0 10px 30px rgba(10,36,99,0.2);
+        }
+        .profile-preview .logo-shield {
+            width: 72px; height: 72px; font-size: 1.8rem; margin: 0 auto 1rem;
+            background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.4);
+        }
+        .profile-preview h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .profile-preview p { opacity: 0.85; font-size: 0.9rem; }
+
         .login-overlay {
             position: fixed; inset: 0; background: rgba(242,244,248,0.85); backdrop-filter: blur(20px);
             z-index: 2000; display: none; align-items: center; justify-content: center; padding: 2rem;
@@ -289,10 +301,10 @@
     <div class="container">
         <div class="top-bar">
             <div class="brand">
-                <div class="logo-shield">JW</div>
+                <div class="logo-shield" id="headerLogo">JW</div>
                 <div class="brand-text">
-                    <h1>I.E.P. Juan Wesley</h1>
-                    <p>Sistema de Asistencia Docente • Guadalupe</p>
+                    <h1 id="headerTitle">I.E.P. Juan Wesley</h1>
+                    <p id="headerSubtitle">Sistema de Asistencia Docente • Guadalupe</p>
                 </div>
             </div>
             <div class="mode-switcher">
@@ -362,6 +374,7 @@
                     <div class="panel-title" style="margin-bottom: 1rem;"><span>⚙️</span><span>Panel Admin</span></div>
                     <div class="admin-nav-item active" onclick="switchAdminTab('dashboard', this)"><span>📊</span> Dashboard</div>
                     <div class="admin-nav-item" onclick="switchAdminTab('teachers', this)"><span>👩‍🏫</span> Gestionar Maestras</div>
+                    <div class="admin-nav-item" onclick="switchAdminTab('profile', this)"><span>🏫</span> Personalizar Perfil</div>
                     <div class="admin-nav-item" onclick="switchAdminTab('settings', this)"><span>⏰</span> Configuración</div>
                     <div class="admin-nav-item" onclick="switchAdminTab('history', this)"><span>📜</span> Historial Completo</div>
                     <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(10,36,99,0.08);">
@@ -372,6 +385,7 @@
                 </div>
 
                 <div class="glass-card admin-content">
+                    <!-- Dashboard -->
                     <div id="tab-dashboard" class="admin-section active">
                         <div class="section-title" style="margin-bottom: 1.5rem;">📊 Resumen General</div>
                         <div class="stats-grid">
@@ -397,6 +411,7 @@
                         </button>
                     </div>
 
+                    <!-- Teachers CRUD -->
                     <div id="tab-teachers" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1rem;">👩‍🏫 Gestión de Maestras</div>
                         <div class="teacher-form">
@@ -418,6 +433,41 @@
                         <div id="teacherList" class="teacher-list"></div>
                     </div>
 
+                    <!-- PROFILE CUSTOMIZATION -->
+                    <div id="tab-profile" class="admin-section">
+                        <div class="section-title" style="margin-bottom: 1rem;">🏫 Personalizar Perfil del Colegio</div>
+                        
+                        <div class="profile-preview" id="profilePreview">
+                            <div class="logo-shield" id="previewLogo">JW</div>
+                            <h2 id="previewTitle">I.E.P. Juan Wesley</h2>
+                            <p id="previewSubtitle">Sistema de Asistencia Docente • Guadalupe</p>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 1.25rem; max-width: 500px;">
+                            <div class="form-group">
+                                <label class="form-label">Iniciales / Abreviatura (máx. 3 letras)</label>
+                                <input type="text" id="profileLogo" class="input-field" placeholder="Ej: JW" maxlength="3" value="JW">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Nombre del Colegio</label>
+                                <input type="text" id="profileTitle" class="input-field" placeholder="Ej: I.E.P. Juan Wesley" value="I.E.P. Juan Wesley">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Subtítulo / Lema</label>
+                                <input type="text" id="profileSubtitle" class="input-field" placeholder="Ej: Sistema de Asistencia Docente • Guadalupe" value="Sistema de Asistencia Docente • Guadalupe">
+                            </div>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-success" onclick="saveProfile()">
+                                    <span>💾</span><span>Guardar Perfil</span>
+                                </button>
+                                <button class="btn btn-ghost btn-sm" onclick="resetProfile()">
+                                    <span>🔄</span><span>Restaurar Default</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings -->
                     <div id="tab-settings" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1.5rem;">⏰ Configuración del Sistema</div>
                         <div style="max-width: 400px; display: flex; flex-direction: column; gap: 1.5rem;">
@@ -441,6 +491,7 @@
                         </div>
                     </div>
 
+                    <!-- History -->
                     <div id="tab-history" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1rem;">📜 Historial Completo</div>
                         <div class="filter-bar">
@@ -468,14 +519,14 @@
         </div>
 
         <footer class="footer">
-            <p>© 2026 <strong>I.E.P. Juan Wesley</strong> • Guadalupe</p>
-            <p style="margin-top: 0.25rem; font-size: 0.8rem;">Sistema de Asistencia Docente v3.0 — Nube</p>
+            <p>© 2026 <strong id="footerName">I.E.P. Juan Wesley</strong> • <span id="footerLocation">Guadalupe</span></p>
+            <p style="margin-top: 0.25rem; font-size: 0.8rem;">Sistema de Asistencia Docente v4.0 — Nube</p>
         </footer>
     </div>
 
     <div id="loginOverlay" class="login-overlay">
         <div class="glass-card login-card">
-            <div class="logo-shield">🔐</div>
+            <div class="logo-shield" id="loginLogo">JW</div>
             <h2>Acceso Administrativo</h2>
             <p>Ingrese su contraseña para gestionar el sistema</p>
             <div class="login-form">
@@ -493,9 +544,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ==========================================
-        // CONFIGURACIÓN DE FIREBASE (YA PUESTA)
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDbXLGot7ivu49fVsXMrVztoZnYbz_kdYA",
             authDomain: "asistencia-juan-wesley.firebaseapp.com",
@@ -504,7 +552,6 @@
             messagingSenderId: "377366825922",
             appId: "1:377366825922:web:5b8624f11fda18ebcc645b"
         };
-        // ==========================================
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -512,9 +559,9 @@
         let teachers = {};
         let records = [];
         let settings = { limitTime: '07:30', adminPass: 'admin2026' };
+        let profile = { logo: 'JW', title: 'I.E.P. Juan Wesley', subtitle: 'Sistema de Asistencia Docente • Guadalupe' };
         let isAdmin = false;
         let editingTeacherId = null;
-        let dataLoaded = false;
 
         async function init() {
             document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -526,11 +573,17 @@
                 e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
             });
 
+            // Profile inputs live preview
+            ['profileLogo','profileTitle','profileSubtitle'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateProfilePreview);
+            });
+
             updateClock();
             setInterval(updateClock, 1000);
 
             try {
                 await loadSettingsFromCloud();
+                await loadProfileFromCloud();
                 setupListeners();
 
                 if (localStorage.getItem('jw_admin_session') === 'true') {
@@ -541,10 +594,8 @@
                     document.getElementById('adminView').classList.add('active');
                 }
 
-                // Wait a moment for first data load
                 setTimeout(() => {
                     document.getElementById('loadingOverlay').classList.add('hidden');
-                    dataLoaded = true;
                 }, 1500);
 
             } catch (err) {
@@ -578,16 +629,78 @@
                     document.getElementById('adminLimitTime').value = settings.limitTime || '07:30';
                 }
             }, err => console.error('Settings error:', err));
+
+            db.collection('settings').doc('profile').onSnapshot(doc => {
+                if (doc.exists) {
+                    profile = { ...profile, ...doc.data() };
+                    applyProfile();
+                }
+            }, err => console.error('Profile error:', err));
         }
 
         async function loadSettingsFromCloud() {
             const doc = await db.collection('settings').doc('config').get();
-            if (doc.exists) {
-                settings = { ...settings, ...doc.data() };
-            } else {
-                await db.collection('settings').doc('config').set(settings);
-            }
+            if (doc.exists) settings = { ...settings, ...doc.data() };
+            else await db.collection('settings').doc('config').set(settings);
             document.getElementById('adminLimitTime').value = settings.limitTime || '07:30';
+        }
+
+        async function loadProfileFromCloud() {
+            const doc = await db.collection('settings').doc('profile').get();
+            if (doc.exists) {
+                profile = { ...profile, ...doc.data() };
+                applyProfile();
+            } else {
+                await db.collection('settings').doc('profile').set(profile);
+            }
+        }
+
+        function applyProfile() {
+            document.getElementById('headerLogo').textContent = profile.logo || 'JW';
+            document.getElementById('headerTitle').textContent = profile.title || 'I.E.P. Juan Wesley';
+            document.getElementById('headerSubtitle').textContent = profile.subtitle || 'Sistema de Asistencia Docente • Guadalupe';
+            document.getElementById('loginLogo').textContent = profile.logo || 'JW';
+            document.getElementById('footerName').textContent = profile.title || 'I.E.P. Juan Wesley';
+            
+            // Extract location from subtitle (after •)
+            const parts = (profile.subtitle || '').split('•');
+            document.getElementById('footerLocation').textContent = parts[1] ? parts[1].trim() : 'Guadalupe';
+
+            // Update admin inputs
+            document.getElementById('profileLogo').value = profile.logo || 'JW';
+            document.getElementById('profileTitle').value = profile.title || 'I.E.P. Juan Wesley';
+            document.getElementById('profileSubtitle').value = profile.subtitle || 'Sistema de Asistencia Docente • Guadalupe';
+            updateProfilePreview();
+        }
+
+        function updateProfilePreview() {
+            const logo = document.getElementById('profileLogo').value || 'JW';
+            const title = document.getElementById('profileTitle').value || 'I.E.P. Juan Wesley';
+            const subtitle = document.getElementById('profileSubtitle').value || 'Sistema de Asistencia Docente • Guadalupe';
+            
+            document.getElementById('previewLogo').textContent = logo;
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewSubtitle').textContent = subtitle;
+        }
+
+        async function saveProfile() {
+            const logo = document.getElementById('profileLogo').value.trim().toUpperCase();
+            const title = document.getElementById('profileTitle').value.trim();
+            const subtitle = document.getElementById('profileSubtitle').value.trim();
+
+            if (!logo) { showToast('error', 'Error', 'Las iniciales no pueden estar vacías'); return; }
+            if (!title) { showToast('error', 'Error', 'El nombre del colegio no puede estar vacío'); return; }
+
+            profile = { logo: logo.slice(0,3), title, subtitle };
+            await db.collection('settings').doc('profile').set(profile);
+            applyProfile();
+            showToast('success', 'Perfil Actualizado', 'Los cambios se aplicaron en toda la aplicación');
+        }
+
+        function resetProfile() {
+            profile = { logo: 'JW', title: 'I.E.P. Juan Wesley', subtitle: 'Sistema de Asistencia Docente • Guadalupe' };
+            applyProfile();
+            showToast('info', 'Perfil Restaurado', 'Valores por defecto cargados. Guarda para aplicar.');
         }
 
         function switchMode(mode) {
@@ -663,6 +776,7 @@
             document.getElementById('tab-' + tab).classList.add('active');
             if (tab === 'dashboard') updateStats();
             if (tab === 'history') renderHistory();
+            if (tab === 'profile') updateProfilePreview();
         }
 
         function updateClock() {
@@ -748,24 +862,25 @@
             }
         }
 
+        // ✅ REGISTROS DEL DÍA: Solo muestra HOY, mañana empieza vacío automáticamente
         function renderPublicTable() {
-    const tbody = document.getElementById('recordsTableBody');
-    const today = new Date().toLocaleDateString('es-PE');
-    const todayRec = records.filter(r => r.date === today);
+            const tbody = document.getElementById('recordsTableBody');
+            const today = new Date().toLocaleDateString('es-PE');
+            const todayRec = records.filter(r => r.date === today);
 
-    if (todayRec.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
-        return;
-    }
-    tbody.innerHTML = todayRec.map(r => `
-        <tr class="fade-in">
-            <td style="font-weight:500;">${r.teacherName}</td>
-            <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
-            <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
-            <td>${r.date}</td>
-            <td><span class="tag ${r.statusClass}">${r.status}</span></td>
-        </tr>`).join('');
-}
+            if (todayRec.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = todayRec.map(r => `
+                <tr class="fade-in">
+                    <td style="font-weight:500;">${r.teacherName}</td>
+                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+                    <td>${r.date}</td>
+                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+                </tr>`).join('');
+        }
 
         function renderTeacherList() {
             const container = document.getElementById('teacherList');
@@ -856,39 +971,35 @@
             renderHistory();
         }
 
+        // ✅ HISTORIAL COMPLETO: Guarda TODOS los registros de TODOS los días para siempre
         function renderHistory() {
-    const tbody = document.getElementById('historyTableBody');
-    const teacherFilter = document.getElementById('filterTeacher').value;
-    const dateFilter = document.getElementById('filterDate').value;
-    let filtered = [...records];
+            const tbody = document.getElementById('historyTableBody');
+            const teacherFilter = document.getElementById('filterTeacher').value;
+            const dateFilter = document.getElementById('filterDate').value;
+            let filtered = [...records];
 
-    // Filtro por maestra
-    if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
+            if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
+            if (dateFilter) {
+                const [year, month, day] = dateFilter.split('-').map(Number);
+                const filterDateObj = new Date(year, month - 1, day);
+                const filterDateLocal = filterDateObj.toLocaleDateString('es-PE');
+                filtered = filtered.filter(r => r.date === filterDateLocal);
+            }
 
-    // Filtro por fecha - CORREGIDO para comparar correctamente
-    if (dateFilter) {
-        // Convertir YYYY-MM-DD del input a formato local peruano (D/M/YYYY o DD/MM/YYYY)
-        const [year, month, day] = dateFilter.split('-').map(Number);
-        // Crear fecha en formato local peruano (sin hora para evitar problemas de zona horaria)
-        const filterDateObj = new Date(year, month - 1, day);
-        const filterDateLocal = filterDateObj.toLocaleDateString('es-PE');
-        
-        filtered = filtered.filter(r => r.date === filterDateLocal);
-    }
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros para los filtros seleccionados</div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = filtered.map(r => `
+                <tr class="fade-in">
+                    <td style="font-weight:500;">${r.teacherName}</td>
+                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+                    <td>${r.date}</td>
+                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+                </tr>`).join('');
+        }
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros para los filtros seleccionados</div></td></tr>';
-        return;
-    }
-    tbody.innerHTML = filtered.map(r => `
-        <tr class="fade-in">
-            <td style="font-weight:500;">${r.teacherName}</td>
-            <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
-            <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
-            <td>${r.date}</td>
-            <td><span class="tag ${r.statusClass}">${r.status}</span></td>
-        </tr>`).join('');
-}
         function updateStats() {
             const today = new Date().toLocaleDateString('es-PE');
             const todayRec = records.filter(r => r.date === today);
@@ -914,7 +1025,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
             const now = new Date();
-            const filename = `Asistencia_Juan_Wesley_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
+            const filename = `Asistencia_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
             XLSX.writeFile(wb, filename);
             showToast('success', 'Exportación Exitosa', `Archivo "${filename}" descargado`);
         }

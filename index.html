@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I.E.P. Juan Wesley — Control de Asistencia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #0A2463;
+            --primary-light: #1e3a8a;
+            --secondary: #D90429;
+            --accent: #2E8B57;
+            --accent-light: #3CB371;
+            --bg: #F2F4F8;
+            --bg-card: rgba(255, 255, 255, 0.72);
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: rgba(255, 255, 255, 0.5);
+            --shadow: 0 8px 32px rgba(10, 36, 99, 0.1);
+            --shadow-lg: 0 20px 40px rgba(10, 36, 99, 0.15);
+            --radius: 24px;
+            --radius-sm: 16px;
+            --transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #e0e5ec 0%, #f2f4f8 50%, #ffffff 100%);
+            min-height: 100vh;
+            color: var(--text);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .ambient-light {
+            position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.35; z-index: 0; pointer-events: none;
+        }
+        .ambient-1 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(10,36,99,0.2) 0%, transparent 70%); top: -100px; left: -100px; }
+        .ambient-2 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(217,4,41,0.12) 0%, transparent 70%); bottom: 10%; right: -50px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; position: relative; z-index: 1; }
+
+        /* Header & Mode Switcher */
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
+            animation: fadeInDown 0.8s ease;
+        }
+        .brand { display: flex; align-items: center; gap: 1rem; }
+        .logo-shield {
+            width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: white; font-weight: 700; box-shadow: 0 8px 24px rgba(10,36,99,0.25);
+            border: 2px solid rgba(255,255,255,0.3); position: relative; overflow: hidden;
+        }
+        .logo-shield::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .brand-text h1 { font-size: 1.3rem; font-weight: 700; color: var(--primary); letter-spacing: -0.5px; }
+        .brand-text p { font-size: 0.8rem; color: var(--text-light); font-weight: 400; }
+
+        .mode-switcher {
+            display: flex; background: rgba(255,255,255,0.5); backdrop-filter: blur(12px);
+            border-radius: 50px; padding: 4px; border: 1px solid rgba(10,36,99,0.08); box-shadow: var(--shadow);
+        }
+        .mode-btn {
+            padding: 0.6rem 1.4rem; border: none; background: transparent; border-radius: 50px;
+            font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-light);
+            transition: var(--transition); position: relative; z-index: 1;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white; box-shadow: 0 4px 12px rgba(10,36,99,0.2);
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        .glass-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+
+        /* Views */
+        .view { display: none; animation: fadeIn 0.5s ease; }
+        .view.active { display: block; }
+
+        /* PUBLIC VIEW */
+        .public-grid {
+            display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; margin-bottom: 1.5rem;
+        }
+        @media (max-width: 900px) { .public-grid { grid-template-columns: 1fr; } }
+
+        .clock-section {
+            padding: 2.5rem; text-align: center; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; min-height: 320px; position: relative; overflow: hidden;
+        }
+        .clock-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent)); opacity: 0.7;
+        }
+        .time-display { font-size: 4rem; font-weight: 200; color: var(--primary); letter-spacing: -2px; line-height: 1; margin-bottom: 0.5rem; font-variant-numeric: tabular-nums; text-shadow: 0 2px 10px rgba(10,36,99,0.1); }
+        .date-display { font-size: 1.1rem; color: var(--text-light); font-weight: 500; text-transform: capitalize; margin-bottom: 2rem; }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem;
+            border-radius: 50px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px; transition: var(--transition);
+        }
+        .status-badge.on-time { background: rgba(46, 139, 87, 0.15); color: var(--accent); border: 1px solid rgba(46, 139, 87, 0.3); }
+        .status-badge.late { background: rgba(217, 4, 41, 0.15); color: var(--secondary); border: 1px solid rgba(217, 4, 41, 0.3); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+
+        .control-panel { padding: 2.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .panel-title { font-size: 1.25rem; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .form-label { font-size: 0.8rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .custom-select { position: relative; }
+        select, .input-field {
+            width: 100%; padding: 1rem 1.25rem; border-radius: var(--radius-sm);
+            border: 1px solid rgba(10, 36, 99, 0.1); background: rgba(255, 255, 255, 0.6);
+            font-family: inherit; font-size: 1rem; color: var(--text); outline: none; transition: var(--transition);
+        }
+        select { cursor: pointer; appearance: none; }
+        select:focus, .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(10, 36, 99, 0.1); background: rgba(255, 255, 255, 0.9); }
+        .custom-select::after { content: '▼'; position: absolute; right: 1.25rem; top: 50%; transform: translateY(-50%); color: var(--primary); font-size: 0.7rem; pointer-events: none; }
+        .pin-input { text-align: center; letter-spacing: 0.5rem; font-weight: 600; }
+
+        .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; }
+        .btn {
+            position: relative; padding: 1.25rem 1.5rem; border: none; border-radius: var(--radius-sm);
+            font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; overflow: hidden;
+            transition: var(--transition); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; letter-spacing: 0.3px;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-icon { font-size: 1.5rem; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; box-shadow: 0 10px 25px rgba(10, 36, 99, 0.3); }
+        .btn-primary:hover { box-shadow: 0 15px 35px rgba(10, 36, 99, 0.4); transform: translateY(-2px); }
+        .btn-secondary { background: linear-gradient(135deg, var(--secondary) 0%, #ef233c 100%); color: white; box-shadow: 0 10px 25px rgba(217, 4, 41, 0.3); }
+        .btn-secondary:hover { box-shadow: 0 15px 35px rgba(217, 4, 41, 0.4); transform: translateY(-2px); }
+        .btn-ghost { background: rgba(255, 255, 255, 0.4); color: var(--text); border: 1px solid rgba(10, 36, 99, 0.1); }
+        .btn-ghost:hover { background: rgba(255, 255, 255, 0.8); transform: translateY(-2px); }
+        .btn-success { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%); color: white; box-shadow: 0 8px 20px rgba(46, 139, 87, 0.3); }
+        .btn-success:hover { box-shadow: 0 12px 30px rgba(46, 139, 87, 0.4); transform: translateY(-2px); }
+        .btn-danger { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; }
+        .btn-sm { padding: 0.6rem 1rem; font-size: 0.85rem; flex-direction: row; gap: 0.4rem; }
+
+        /* Records */
+        .records-section { padding: 2rem; margin-bottom: 1.5rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .section-title { font-size: 1.25rem; font-weight: 600; color: var(--primary); }
+        .table-container { overflow-x: auto; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(10, 36, 99, 0.05); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        thead { background: rgba(10, 36, 99, 0.05); }
+        th { padding: 1rem; text-align: left; font-weight: 600; color: var(--primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 1rem; border-bottom: 1px solid rgba(10, 36, 99, 0.05); color: var(--text); }
+        tr { transition: background 0.2s ease; }
+        tbody tr:hover { background: rgba(255, 255, 255, 0.6); }
+        tbody tr:last-child td { border-bottom: none; }
+        .tag { display: inline-flex; align-items: center; padding: 0.35rem 0.85rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.3px; }
+        .tag-success { background: rgba(46, 139, 87, 0.15); color: var(--accent); }
+        .tag-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+        .tag-danger { background: rgba(217, 4, 41, 0.15); color: var(--secondary); }
+        .tag-info { background: rgba(10, 36, 99, 0.1); color: var(--primary); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-light); }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+
+        /* ADMIN VIEW */
+        .admin-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+        @media (max-width: 900px) { .admin-grid { grid-template-columns: 1fr; } }
+
+        .admin-sidebar { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; height: fit-content; }
+        .admin-nav-item {
+            padding: 0.9rem 1.2rem; border-radius: 14px; cursor: pointer; font-weight: 500; font-size: 0.95rem;
+            display: flex; align-items: center; gap: 0.75rem; transition: var(--transition); color: var(--text-light);
+        }
+        .admin-nav-item:hover { background: rgba(10,36,99,0.05); color: var(--primary); }
+        .admin-nav-item.active { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; box-shadow: 0 4px 12px rgba(10,36,99,0.2); }
+
+        .admin-content { padding: 2rem; }
+        .admin-section { display: none; }
+        .admin-section.active { display: block; animation: fadeIn 0.4s ease; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card {
+            padding: 1.5rem; border-radius: var(--radius-sm); background: rgba(255,255,255,0.5);
+            border: 1px solid rgba(10,36,99,0.05); transition: var(--transition);
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); line-height: 1; }
+        .stat-label { font-size: 0.85rem; color: var(--text-light); margin-top: 0.5rem; font-weight: 500; }
+
+        .teacher-form {
+            display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 0.75rem; align-items: end;
+            margin-bottom: 1.5rem; padding: 1.25rem; background: rgba(255,255,255,0.4);
+            border-radius: var(--radius-sm); border: 1px solid rgba(10,36,99,0.05);
+        }
+        @media (max-width: 700px) { .teacher-form { grid-template-columns: 1fr; } }
+
+        .teacher-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .teacher-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem;
+            background: rgba(255,255,255,0.5); border-radius: 14px; border: 1px solid rgba(10,36,99,0.05);
+            transition: var(--transition);
+        }
+        .teacher-item:hover { background: rgba(255,255,255,0.8); transform: translateX(4px); }
+        .teacher-info { display: flex; flex-direction: column; gap: 0.2rem; }
+        .teacher-name { font-weight: 600; color: var(--primary); }
+        .teacher-meta { font-size: 0.8rem; color: var(--text-light); }
+        .teacher-actions { display: flex; gap: 0.5rem; }
+
+        .filter-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .filter-bar .input-field { width: auto; min-width: 200px; }
+
+        /* Login Overlay */
+        .login-overlay {
+            position: fixed; inset: 0; background: rgba(242,244,248,0.85); backdrop-filter: blur(20px);
+            z-index: 2000; display: none; align-items: center; justify-content: center; padding: 2rem;
+        }
+        .login-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
+        .login-card { max-width: 420px; width: 100%; padding: 2.5rem; text-align: center; }
+        .login-card .logo-shield { width: 72px; height: 72px; font-size: 1.6rem; margin: 0 auto 1.5rem; }
+        .login-card h2 { color: var(--primary); margin-bottom: 0.5rem; font-size: 1.5rem; }
+        .login-card p { color: var(--text-light); margin-bottom: 2rem; font-size: 0.95rem; }
+        .login-form { display: flex; flex-direction: column; gap: 1rem; }
+        .login-form .input-field { text-align: center; font-size: 1.1rem; letter-spacing: 0.1rem; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed; top: 2rem; right: 2rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;
+        }
+        .toast {
+            background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(20px); padding: 1rem 1.5rem; border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;
+            min-width: 320px; animation: slideInRight 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); pointer-events: all;
+        }
+        .toast.hiding { animation: slideOutRight 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100px); } }
+        .toast-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+        .toast-success .toast-icon { background: rgba(46, 139, 87, 0.15); color: var(--accent); }
+        .toast-error .toast-icon { background: rgba(217, 4, 41, 0.15); color: var(--secondary); }
+        .toast-warning .toast-icon { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+        .toast-info .toast-icon { background: rgba(10, 36, 99, 0.1); color: var(--primary); }
+        .toast-content { flex: 1; }
+        .toast-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.15rem; }
+        .toast-message { font-size: 0.85rem; color: var(--text-light); }
+
+        /* Animations */
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 0.5s ease; }
+
+        /* Footer */
+        .footer { text-align: center; padding: 2rem; color: var(--text-light); font-size: 0.85rem; }
+        .footer strong { color: var(--primary); }
+
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .time-display { font-size: 2.5rem; }
+            .actions-grid { grid-template-columns: 1fr; }
+            .clock-section, .control-panel, .records-section, .admin-content { padding: 1.5rem; }
+            .toast-container { left: 1rem; right: 1rem; }
+            .toast { min-width: auto; width: 100%; }
+            .top-bar { flex-direction: column; gap: 1rem; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-light ambient-1"></div>
+    <div class="ambient-light ambient-2"></div>
+
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="brand">
+                <div class="logo-shield">JW</div>
+                <div class="brand-text">
+                    <h1>I.E.P. Juan Wesley</h1>
+                    <p>Sistema de Asistencia Docente • Guadalupe</p>
+                </div>
+            </div>
+            <div class="mode-switcher">
+                <button class="mode-btn active" id="btnPublic" onclick="switchMode('public')">🖥️ Registro</button>
+                <button class="mode-btn" id="btnAdmin" onclick="switchMode('admin')">🔐 Administración</button>
+            </div>
+        </div>
+
+        <!-- ==================== PUBLIC VIEW ==================== -->
+        <div id="publicView" class="view active">
+            <div class="public-grid">
+                <div class="glass-card clock-section">
+                    <div id="timeDisplay" class="time-display">00:00:00</div>
+                    <div id="dateDisplay" class="date-display">Cargando...</div>
+                    <div id="statusBadge" class="status-badge on-time">
+                        <span class="pulse-dot"></span>
+                        <span id="statusText">Horario Regular</span>
+                    </div>
+                </div>
+
+                <div class="glass-card control-panel">
+                    <div class="panel-title"><span>👩‍🏫</span><span>Registro de Asistencia</span></div>
+                    <div class="form-group">
+                        <label class="form-label">Seleccionar Maestra</label>
+                        <div class="custom-select">
+                            <select id="teacherSelect">
+                                <option value="" disabled selected>-- Elija una maestra --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Código / PIN de Verificación</label>
+                        <input type="password" id="pinInput" class="input-field pin-input" placeholder="••••" maxlength="6" inputmode="numeric">
+                    </div>
+                    <div class="actions-grid">
+                        <button class="btn btn-primary" onclick="registerEntry()">
+                            <span class="btn-icon">🌅</span><span>Registrar Entrada</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="registerExit()">
+                            <span class="btn-icon">🌙</span><span>Registrar Salida</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card records-section">
+                <div class="section-header">
+                    <div class="section-title">📋 Registros del Día</div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Maestra</th><th>Tipo</th><th>Hora</th><th>Fecha</th><th>Estado</th></tr>
+                        </thead>
+                        <tbody id="recordsTableBody">
+                            <tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ADMIN VIEW ==================== -->
+        <div id="adminView" class="view">
+            <div class="admin-grid">
+                <!-- Sidebar -->
+                <div class="glass-card admin-sidebar">
+                    <div class="panel-title" style="margin-bottom: 1rem;"><span>⚙️</span><span>Panel Admin</span></div>
+                    <div class="admin-nav-item active" onclick="switchAdminTab('dashboard', this)"><span>📊</span> Dashboard</div>
+                    <div class="admin-nav-item" onclick="switchAdminTab('teachers', this)"><span>👩‍🏫</span> Gestionar Maestras</div>
+                    <div class="admin-nav-item" onclick="switchAdminTab('settings', this)"><span>⏰</span> Configuración</div>
+                    <div class="admin-nav-item" onclick="switchAdminTab('history', this)"><span>📜</span> Historial Completo</div>
+                    <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(10,36,99,0.08);">
+                        <button class="btn btn-ghost btn-sm" style="width: 100%;" onclick="logoutAdmin()">
+                            <span>🚪</span> Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="glass-card admin-content">
+                    <!-- Dashboard -->
+                    <div id="tab-dashboard" class="admin-section active">
+                        <div class="section-title" style="margin-bottom: 1.5rem;">📊 Resumen General</div>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="statTotalTeachers">0</div>
+                                <div class="stat-label">Maestras Registradas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="statTodayEntries">0</div>
+                                <div class="stat-label">Entradas Hoy</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="statTodayLate">0</div>
+                                <div class="stat-label">Tardanzas Hoy</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="statTodayExits">0</div>
+                                <div class="stat-label">Salidas Hoy</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-success" onclick="exportMonthlyReport()" style="width: 100%; max-width: 320px;">
+                            <span>📊</span><span>Exportar Reporte Mensual a Excel</span>
+                        </button>
+                    </div>
+
+                    <!-- Teachers CRUD -->
+                    <div id="tab-teachers" class="admin-section">
+                        <div class="section-title" style="margin-bottom: 1rem;">👩‍🏫 Gestión de Maestras</div>
+                        <div class="teacher-form">
+                            <div class="form-group">
+                                <label class="form-label">Nombre Completo</label>
+                                <input type="text" id="newTeacherName" class="input-field" placeholder="Ej: María Elena Vásquez">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Código / PIN</label>
+                                <input type="text" id="newTeacherPin" class="input-field" placeholder="Ej: 1010" maxlength="6">
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="addTeacher()" style="height: fit-content;">
+                                <span>➕</span><span>Agregar</span>
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="clearTeacherForm()" style="height: fit-content;">
+                                <span>🔄</span><span>Limpiar</span>
+                            </button>
+                        </div>
+                        <div id="teacherList" class="teacher-list"></div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div id="tab-settings" class="admin-section">
+                        <div class="section-title" style="margin-bottom: 1.5rem;">⏰ Configuración del Sistema</div>
+                        <div style="max-width: 400px; display: flex; flex-direction: column; gap: 1.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Hora Límite de Entrada</label>
+                                <input type="time" id="adminLimitTime" class="input-field" value="07:30">
+                                <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 0.5rem;">
+                                    Los registros de entrada después de esta hora se marcarán automáticamente como <strong>Tardanza</strong>.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cambiar Contraseña de Administrador</label>
+                                <input type="password" id="newAdminPass" class="input-field" placeholder="Nueva contraseña">
+                                <button class="btn btn-primary btn-sm" onclick="changeAdminPassword()" style="margin-top: 0.5rem; width: fit-content;">
+                                    <span>🔒</span><span>Actualizar Contraseña</span>
+                                </button>
+                            </div>
+                            <button class="btn btn-success" onclick="saveSettings()" style="width: fit-content;">
+                                <span>💾</span><span>Guardar Configuración</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- History -->
+                    <div id="tab-history" class="admin-section">
+                        <div class="section-title" style="margin-bottom: 1rem;">📜 Historial Completo</div>
+                        <div class="filter-bar">
+                            <select id="filterTeacher" class="input-field" style="min-width: 200px;" onchange="renderHistory()">
+                                <option value="">Todas las maestras</option>
+                            </select>
+                            <input type="date" id="filterDate" class="input-field" onchange="renderHistory()">
+                            <button class="btn btn-ghost btn-sm" onclick="clearFilters()">
+                                <span>🔄</span><span>Limpiar Filtros</span>
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr><th>Maestra</th><th>Tipo</th><th>Hora</th><th>Fecha</th><th>Estado</th></tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros</div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2026 <strong>I.E.P. Juan Wesley</strong> • Guadalupe</p>
+            <p style="margin-top: 0.25rem; font-size: 0.8rem;">Sistema de Asistencia Docente v2.0</p>
+        </footer>
+    </div>
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="glass-card login-card">
+            <div class="logo-shield">🔐</div>
+            <h2>Acceso Administrativo</h2>
+            <p>Ingrese su contraseña para gestionar el sistema</p>
+            <div class="login-form">
+                <input type="password" id="adminPassword" class="input-field" placeholder="••••••" onkeypress="if(event.key==='Enter')loginAdmin()">
+                <button class="btn btn-primary" onclick="loginAdmin()">
+                    <span>🔓</span><span>Ingresar al Panel</span>
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="cancelLogin()" style="margin-top: 0.5rem;">
+                    <span>↩️</span><span>Volver al Registro</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ==================== STORAGE KEYS ====================
+        const KEYS = {
+            teachers: 'jw_teachers_v2',
+            records: 'jw_records_v2',
+            settings: 'jw_settings_v2',
+            adminHash: 'jw_admin_hash_v2',
+            session: 'jw_admin_session'
+        };
+
+        // ==================== STATE ====================
+        let teachers = {};
+        let records = [];
+        let settings = { limitTime: '07:30' };
+        let isAdmin = false;
+        let editingTeacherId = null;
+
+        // ==================== INITIALIZATION ====================
+        function init() {
+            loadData();
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderPublicSelect();
+            renderPublicTable();
+            updateStats();
+
+            // Numeric only for PIN inputs
+            document.getElementById('pinInput').addEventListener('input', e => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
+            });
+            document.getElementById('newTeacherPin').addEventListener('input', e => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
+            });
+
+            // Check session
+            if (localStorage.getItem(KEYS.session) === 'true') {
+                isAdmin = true;
+                document.getElementById('btnAdmin').classList.add('active');
+                document.getElementById('btnPublic').classList.remove('active');
+                document.getElementById('publicView').classList.remove('active');
+                document.getElementById('adminView').classList.add('active');
+                renderTeacherList();
+                renderHistory();
+                updateStats();
+            }
+        }
+
+        // ==================== DATA PERSISTENCE ====================
+        function loadData() {
+            const t = localStorage.getItem(KEYS.teachers);
+            const r = localStorage.getItem(KEYS.records);
+            const s = localStorage.getItem(KEYS.settings);
+
+            if (t) teachers = JSON.parse(t);
+            else {
+                // Default teachers
+                teachers = {
+                    '101': { name: 'María Elena Vásquez', pin: '1010' },
+                    '102': { name: 'Carmen Rosa Díaz', pin: '1020' },
+                    '103': { name: 'Juana Patricia López', pin: '1030' },
+                    '104': { name: 'Ana Mercedes Castro', pin: '1040' },
+                    '105': { name: 'Rosa María Quispe', pin: '1050' },
+                    '106': { name: 'Luz Marina Huerta', pin: '1060' },
+                    '107': { name: 'Doris Esperanza Ruiz', pin: '1070' },
+                    '108': { name: 'Yolanda Irene Palacios', pin: '1080' }
+                };
+                saveTeachers();
+            }
+
+            if (r) records = JSON.parse(r);
+            if (s) settings = JSON.parse(s);
+            else {
+                settings = { limitTime: '07:30', adminPass: 'admin2026' };
+                saveSettings();
+            }
+
+            // Apply settings to inputs
+            document.getElementById('adminLimitTime').value = settings.limitTime;
+        }
+
+        function saveTeachers() { localStorage.setItem(KEYS.teachers, JSON.stringify(teachers)); }
+        function saveRecords() { localStorage.setItem(KEYS.records, JSON.stringify(records)); }
+        function saveSettings() { localStorage.setItem(KEYS.settings, JSON.stringify(settings)); }
+
+        // ==================== MODE SWITCHING ====================
+        function switchMode(mode) {
+            if (mode === 'public') {
+                document.getElementById('btnPublic').classList.add('active');
+                document.getElementById('btnAdmin').classList.remove('active');
+                document.getElementById('publicView').classList.add('active');
+                document.getElementById('adminView').classList.remove('active');
+                renderPublicSelect();
+                renderPublicTable();
+            } else {
+                if (!isAdmin) {
+                    document.getElementById('loginOverlay').classList.add('active');
+                    setTimeout(() => document.getElementById('adminPassword').focus(), 100);
+                } else {
+                    document.getElementById('btnAdmin').classList.add('active');
+                    document.getElementById('btnPublic').classList.remove('active');
+                    document.getElementById('publicView').classList.remove('active');
+                    document.getElementById('adminView').classList.add('active');
+                    renderTeacherList();
+                    renderHistory();
+                    updateStats();
+                }
+            }
+        }
+
+        function cancelLogin() {
+            document.getElementById('loginOverlay').classList.remove('active');
+            document.getElementById('adminPassword').value = '';
+            switchMode('public');
+        }
+
+        function loginAdmin() {
+            const pass = document.getElementById('adminPassword').value.trim();
+            const stored = settings.adminPass || 'admin2026';
+
+            if (pass === stored) {
+                isAdmin = true;
+                localStorage.setItem(KEYS.session, 'true');
+                document.getElementById('loginOverlay').classList.remove('active');
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('btnAdmin').classList.add('active');
+                document.getElementById('btnPublic').classList.remove('active');
+                document.getElementById('publicView').classList.remove('active');
+                document.getElementById('adminView').classList.add('active');
+                renderTeacherList();
+                renderHistory();
+                updateStats();
+                showToast('success', 'Bienvenido', 'Acceso administrativo concedido');
+            } else {
+                showToast('error', 'Acceso Denegado', 'Contraseña incorrecta');
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            localStorage.removeItem(KEYS.session);
+            switchMode('public');
+            showToast('info', 'Sesión Cerrada', 'Ha salido del panel administrativo');
+        }
+
+        function changeAdminPassword() {
+            const newPass = document.getElementById('newAdminPass').value.trim();
+            if (!newPass || newPass.length < 4) {
+                showToast('error', 'Error', 'La contraseña debe tener al menos 4 caracteres');
+                return;
+            }
+            settings.adminPass = newPass;
+            saveSettings();
+            document.getElementById('newAdminPass').value = '';
+            showToast('success', 'Contraseña Actualizada', 'La nueva contraseña ha sido guardada');
+        }
+
+        // ==================== ADMIN TABS ====================
+        function switchAdminTab(tab, el) {
+            document.querySelectorAll('.admin-nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+            document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            if (tab === 'teachers') renderTeacherList();
+            if (tab === 'history') { populateFilterTeachers(); renderHistory(); }
+            if (tab === 'dashboard') updateStats();
+        }
+
+        // ==================== CLOCK ====================
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('es-PE', { hour12: false });
+            document.getElementById('dateDisplay').textContent = now.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            const [lh, lm] = (settings.limitTime || '07:30').split(':').map(Number);
+            const limit = new Date(now); limit.setHours(lh, lm, 0, 0);
+            const badge = document.getElementById('statusBadge');
+            const txt = document.getElementById('statusText');
+            if (now > limit) { badge.className = 'status-badge late'; txt.textContent = 'Tardanza Activa'; }
+            else { badge.className = 'status-badge on-time'; txt.textContent = 'Horario Regular'; }
+        }
+
+        // ==================== PUBLIC REGISTRATION ====================
+        function renderPublicSelect() {
+            const sel = document.getElementById('teacherSelect');
+            sel.innerHTML = '<option value="" disabled selected>-- Elija una maestra --</option>';
+            Object.entries(teachers).forEach(([id, t]) => {
+                const opt = document.createElement('option');
+                opt.value = id; opt.textContent = t.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        function validatePublicInput() {
+            const id = document.getElementById('teacherSelect').value;
+            const pin = document.getElementById('pinInput').value;
+            if (!id) { showToast('error', 'Error', 'Seleccione una maestra'); return null; }
+            if (!teachers[id]) { showToast('error', 'Error', 'Maestra no encontrada'); return null; }
+            if (pin !== teachers[id].pin) {
+                showToast('error', 'Error', 'Código PIN incorrecto');
+                document.getElementById('pinInput').value = '';
+                document.getElementById('pinInput').focus();
+                return null;
+            }
+            return { id, name: teachers[id].name };
+        }
+
+        function registerEntry() {
+            const data = validatePublicInput(); if (!data) return;
+            const now = new Date();
+            const [lh, lm] = (settings.limitTime || '07:30').split(':').map(Number);
+            const limit = new Date(now); limit.setHours(lh, lm, 0, 0);
+            const isLate = now > limit;
+
+            records.push({
+                id: Date.now(), teacherId: data.id, teacherName: data.name,
+                type: 'Entrada', time: now.toLocaleTimeString('es-PE', { hour12: false }),
+                date: now.toLocaleDateString('es-PE'), isoDate: now.toISOString().split('T')[0],
+                status: isLate ? 'Tardanza' : 'A Tiempo',
+                statusClass: isLate ? 'tag-warning' : 'tag-success',
+                timestamp: now.getTime()
+            });
+
+            saveRecords(); renderPublicTable(); updateStats();
+            document.getElementById('pinInput').value = '';
+            showToast(isLate ? 'warning' : 'success', isLate ? 'Tardanza Registrada' : 'Entrada Registrada',
+                `${data.name} — ${records[records.length-1].time}`);
+        }
+
+        function registerExit() {
+            const data = validatePublicInput(); if (!data) return;
+            const now = new Date();
+            records.push({
+                id: Date.now(), teacherId: data.id, teacherName: data.name,
+                type: 'Salida', time: now.toLocaleTimeString('es-PE', { hour12: false }),
+                date: now.toLocaleDateString('es-PE'), isoDate: now.toISOString().split('T')[0],
+                status: 'Completado', statusClass: 'tag-info', timestamp: now.getTime()
+            });
+            saveRecords(); renderPublicTable(); updateStats();
+            document.getElementById('pinInput').value = '';
+            showToast('success', 'Salida Registrada', `${data.name} — ${records[records.length-1].time}`);
+        }
+
+        function renderPublicTable() {
+            const tbody = document.getElementById('recordsTableBody');
+            const today = new Date().toLocaleDateString('es-PE');
+            const todayRec = records.filter(r => r.date === today).sort((a,b) => b.timestamp - a.timestamp);
+
+            if (todayRec.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = todayRec.map(r => `
+                <tr class="fade-in">
+                    <td style="font-weight:500;">${r.teacherName}</td>
+                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+                    <td>${r.date}</td>
+                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+                </tr>`).join('');
+        }
+
+        // ==================== TEACHER CRUD ====================
+        function renderTeacherList() {
+            const container = document.getElementById('teacherList');
+            const items = Object.entries(teachers).sort((a,b) => a[1].name.localeCompare(b[1].name));
+            if (items.length === 0) { container.innerHTML = '<div class="empty-state" style="padding:2rem;"><div class="empty-state-icon">👩‍🏫</div><div>No hay maestras registradas</div></div>'; return; }
+            container.innerHTML = items.map(([id, t]) => `
+                <div class="teacher-item fade-in">
+                    <div class="teacher-info">
+                        <div class="teacher-name">${t.name}</div>
+                        <div class="teacher-meta">Código: ${id} • PIN: ${t.pin}</div>
+                    </div>
+                    <div class="teacher-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="editTeacher('${id}')"><span>✏️</span><span>Editar</span></button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${id}')"><span>🗑️</span><span>Eliminar</span></button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function addTeacher() {
+            const name = document.getElementById('newTeacherName').value.trim();
+            const pin = document.getElementById('newTeacherPin').value.trim();
+            if (!name) { showToast('error', 'Error', 'Ingrese el nombre de la maestra'); return; }
+            if (!pin || pin.length < 2) { showToast('error', 'Error', 'El código PIN debe tener al menos 2 dígitos'); return; }
+
+            if (editingTeacherId) {
+                teachers[editingTeacherId] = { name, pin };
+                editingTeacherId = null;
+                showToast('success', 'Actualizado', `Datos de ${name} actualizados`);
+            } else {
+                const newId = String(Date.now()).slice(-4) + String(Math.floor(Math.random()*90)+10);
+                teachers[newId] = { name, pin };
+                showToast('success', 'Maestra Agregada', `${name} registrada con código ${newId}`);
+            }
+
+            saveTeachers(); renderTeacherList(); renderPublicSelect(); clearTeacherForm(); updateStats();
+        }
+
+        function editTeacher(id) {
+            const t = teachers[id];
+            if (!t) return;
+            document.getElementById('newTeacherName').value = t.name;
+            document.getElementById('newTeacherPin').value = t.pin;
+            editingTeacherId = id;
+            showToast('info', 'Modo Edición', `Editando a ${t.name}. Realice los cambios y presione Agregar.`);
+        }
+
+        function deleteTeacher(id) {
+            const t = teachers[id];
+            if (!t) return;
+            if (!confirm(`¿Eliminar a ${t.name} del sistema?`)) return;
+            delete teachers[id];
+            saveTeachers(); renderTeacherList(); renderPublicSelect(); updateStats();
+            showToast('success', 'Eliminada', `${t.name} ha sido removida del sistema`);
+        }
+
+        function clearTeacherForm() {
+            document.getElementById('newTeacherName').value = '';
+            document.getElementById('newTeacherPin').value = '';
+            editingTeacherId = null;
+        }
+
+        // ==================== SETTINGS ====================
+        function saveSettings() {
+            const time = document.getElementById('adminLimitTime').value;
+            if (time) settings.limitTime = time;
+            saveSettings();
+            showToast('success', 'Configuración Guardada', `Hora límite establecida en ${settings.limitTime}`);
+        }
+
+        // ==================== HISTORY & FILTERS ====================
+        function populateFilterTeachers() {
+            const sel = document.getElementById('filterTeacher');
+            sel.innerHTML = '<option value="">Todas las maestras</option>';
+            Object.entries(teachers).sort((a,b) => a[1].name.localeCompare(b[1].name)).forEach(([id, t]) => {
+                const opt = document.createElement('option'); opt.value = id; opt.textContent = t.name; sel.appendChild(opt);
+            });
+        }
+
+        function clearFilters() {
+            document.getElementById('filterTeacher').value = '';
+            document.getElementById('filterDate').value = '';
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            const teacherFilter = document.getElementById('filterTeacher').value;
+            const dateFilter = document.getElementById('filterDate').value;
+            let filtered = [...records].sort((a,b) => b.timestamp - a.timestamp);
+
+            if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
+            if (dateFilter) {
+                const d = new Date(dateFilter);
+                const localDate = d.toLocaleDateString('es-PE');
+                filtered = filtered.filter(r => r.date === localDate);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros para los filtros seleccionados</div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = filtered.map(r => `
+                <tr class="fade-in">
+                    <td style="font-weight:500;">${r.teacherName}</td>
+                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+                    <td>${r.date}</td>
+                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+                </tr>`).join('');
+        }
+
+        // ==================== STATS ====================
+        function updateStats() {
+            const today = new Date().toLocaleDateString('es-PE');
+            const todayRec = records.filter(r => r.date === today);
+            document.getElementById('statTotalTeachers').textContent = Object.keys(teachers).length;
+            document.getElementById('statTodayEntries').textContent = todayRec.filter(r => r.type === 'Entrada').length;
+            document.getElementById('statTodayLate').textContent = todayRec.filter(r => r.status === 'Tardanza').length;
+            document.getElementById('statTodayExits').textContent = todayRec.filter(r => r.type === 'Salida').length;
+        }
+
+        // ==================== EXPORT EXCEL ====================
+        function exportMonthlyReport() {
+            if (records.length === 0) { showToast('error', 'Sin Datos', 'No hay registros para exportar'); return; }
+            const data = records.map(r => ({
+                'ID Maestra': r.teacherId, 'Nombre Completo': r.teacherName, 'Tipo': r.type,
+                'Fecha': r.date, 'Hora': r.time, 'Estado': r.status
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            ws['!cols'] = [{wch:12}, {wch:25}, {wch:10}, {wch:12}, {wch:10}, {wch:12}];
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell = ws[XLSX.utils.encode_cell({r:0, c:C})];
+                if (cell) cell.s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0A2463' } }, alignment: { horizontal: 'center' } };
+            }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+            const now = new Date();
+            const filename = `Asistencia_Juan_Wesley_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            showToast('success', 'Exportación Exitosa', `Archivo "${filename}" descargado`);
+        }
+
+        // ==================== TOAST ====================
+        function showToast(type, title, message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const icons = { success: '✓', error: '✕', warning: '!', info: 'ℹ' };
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 400); }, 4000);
+        }
+
+        // ==================== START ====================
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

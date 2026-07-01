@@ -7,6 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
         :root {
             --primary: #0A2463;
@@ -45,7 +48,17 @@
 
         .container { max-width: 1200px; margin: 0 auto; padding: 2rem; position: relative; z-index: 1; }
 
-        /* Header & Mode Switcher */
+        .loading-overlay {
+            position: fixed; inset: 0; background: rgba(242,244,248,0.9); backdrop-filter: blur(10px);
+            z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+        }
+        .loading-overlay.hidden { display: none; }
+        .spinner {
+            width: 48px; height: 48px; border: 4px solid rgba(10,36,99,0.1); border-top-color: var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .top-bar {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
             animation: fadeInDown 0.8s ease;
@@ -80,7 +93,6 @@
             color: white; box-shadow: 0 4px 12px rgba(10,36,99,0.2);
         }
 
-        /* Glass Card */
         .glass-card {
             background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
@@ -88,11 +100,9 @@
         }
         .glass-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
 
-        /* Views */
         .view { display: none; animation: fadeIn 0.5s ease; }
         .view.active { display: block; }
 
-        /* PUBLIC VIEW */
         .public-grid {
             display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; margin-bottom: 1.5rem;
         }
@@ -152,7 +162,6 @@
         .btn-danger { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; }
         .btn-sm { padding: 0.6rem 1rem; font-size: 0.85rem; flex-direction: row; gap: 0.4rem; }
 
-        /* Records */
         .records-section { padding: 2rem; margin-bottom: 1.5rem; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
         .section-title { font-size: 1.25rem; font-weight: 600; color: var(--primary); }
@@ -172,7 +181,6 @@
         .empty-state { text-align: center; padding: 3rem; color: var(--text-light); }
         .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
 
-        /* ADMIN VIEW */
         .admin-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
         @media (max-width: 900px) { .admin-grid { grid-template-columns: 1fr; } }
 
@@ -219,7 +227,6 @@
         .filter-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
         .filter-bar .input-field { width: auto; min-width: 200px; }
 
-        /* Login Overlay */
         .login-overlay {
             position: fixed; inset: 0; background: rgba(242,244,248,0.85); backdrop-filter: blur(20px);
             z-index: 2000; display: none; align-items: center; justify-content: center; padding: 2rem;
@@ -232,7 +239,6 @@
         .login-form { display: flex; flex-direction: column; gap: 1rem; }
         .login-form .input-field { text-align: center; font-size: 1.1rem; letter-spacing: 0.1rem; }
 
-        /* Toast */
         .toast-container {
             position: fixed; top: 2rem; right: 2rem; z-index: 3000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;
         }
@@ -253,12 +259,10 @@
         .toast-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.15rem; }
         .toast-message { font-size: 0.85rem; color: var(--text-light); }
 
-        /* Animations */
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .fade-in { animation: fadeIn 0.5s ease; }
 
-        /* Footer */
         .footer { text-align: center; padding: 2rem; color: var(--text-light); font-size: 0.85rem; }
         .footer strong { color: var(--primary); }
 
@@ -277,8 +281,12 @@
     <div class="ambient-light ambient-1"></div>
     <div class="ambient-light ambient-2"></div>
 
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div style="color: var(--primary); font-weight: 600;">Conectando con la base de datos...</div>
+    </div>
+
     <div class="container">
-        <!-- Top Bar -->
         <div class="top-bar">
             <div class="brand">
                 <div class="logo-shield">JW</div>
@@ -293,7 +301,7 @@
             </div>
         </div>
 
-        <!-- ==================== PUBLIC VIEW ==================== -->
+        <!-- PUBLIC VIEW -->
         <div id="publicView" class="view active">
             <div class="public-grid">
                 <div class="glass-card clock-section">
@@ -347,10 +355,9 @@
             </div>
         </div>
 
-        <!-- ==================== ADMIN VIEW ==================== -->
+        <!-- ADMIN VIEW -->
         <div id="adminView" class="view">
             <div class="admin-grid">
-                <!-- Sidebar -->
                 <div class="glass-card admin-sidebar">
                     <div class="panel-title" style="margin-bottom: 1rem;"><span>⚙️</span><span>Panel Admin</span></div>
                     <div class="admin-nav-item active" onclick="switchAdminTab('dashboard', this)"><span>📊</span> Dashboard</div>
@@ -364,9 +371,7 @@
                     </div>
                 </div>
 
-                <!-- Content -->
                 <div class="glass-card admin-content">
-                    <!-- Dashboard -->
                     <div id="tab-dashboard" class="admin-section active">
                         <div class="section-title" style="margin-bottom: 1.5rem;">📊 Resumen General</div>
                         <div class="stats-grid">
@@ -392,7 +397,6 @@
                         </button>
                     </div>
 
-                    <!-- Teachers CRUD -->
                     <div id="tab-teachers" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1rem;">👩‍🏫 Gestión de Maestras</div>
                         <div class="teacher-form">
@@ -414,7 +418,6 @@
                         <div id="teacherList" class="teacher-list"></div>
                     </div>
 
-                    <!-- Settings -->
                     <div id="tab-settings" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1.5rem;">⏰ Configuración del Sistema</div>
                         <div style="max-width: 400px; display: flex; flex-direction: column; gap: 1.5rem;">
@@ -438,7 +441,6 @@
                         </div>
                     </div>
 
-                    <!-- History -->
                     <div id="tab-history" class="admin-section">
                         <div class="section-title" style="margin-bottom: 1rem;">📜 Historial Completo</div>
                         <div class="filter-bar">
@@ -467,11 +469,10 @@
 
         <footer class="footer">
             <p>© 2026 <strong>I.E.P. Juan Wesley</strong> • Guadalupe</p>
-            <p style="margin-top: 0.25rem; font-size: 0.8rem;">Sistema de Asistencia Docente v2.0</p>
+            <p style="margin-top: 0.25rem; font-size: 0.8rem;">Sistema de Asistencia Docente v3.0 — Nube</p>
         </footer>
     </div>
 
-    <!-- Login Overlay -->
     <div id="loginOverlay" class="login-overlay">
         <div class="glass-card login-card">
             <div class="logo-shield">🔐</div>
@@ -489,36 +490,35 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ==================== STORAGE KEYS ====================
-        const KEYS = {
-            teachers: 'jw_teachers_v2',
-            records: 'jw_records_v2',
-            settings: 'jw_settings_v2',
-            adminHash: 'jw_admin_hash_v2',
-            session: 'jw_admin_session'
+        // ==========================================
+        // CONFIGURACIÓN DE FIREBASE (YA PUESTA)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbXLGot7ivu49fVsXMrVztoZnYbz_kdYA",
+            authDomain: "asistencia-juan-wesley.firebaseapp.com",
+            projectId: "asistencia-juan-wesley",
+            storageBucket: "asistencia-juan-wesley.firebasestorage.app",
+            messagingSenderId: "377366825922",
+            appId: "1:377366825922:web:5b8624f11fda18ebcc645b"
         };
+        // ==========================================
 
-        // ==================== STATE ====================
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         let teachers = {};
         let records = [];
-        let settings = { limitTime: '07:30' };
+        let settings = { limitTime: '07:30', adminPass: 'admin2026' };
         let isAdmin = false;
         let editingTeacherId = null;
+        let dataLoaded = false;
 
-        // ==================== INITIALIZATION ====================
-        function init() {
-            loadData();
-            updateClock();
-            setInterval(updateClock, 1000);
-            renderPublicSelect();
-            renderPublicTable();
-            updateStats();
+        async function init() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
 
-            // Numeric only for PIN inputs
             document.getElementById('pinInput').addEventListener('input', e => {
                 e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
             });
@@ -526,65 +526,76 @@
                 e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
             });
 
-            // Check session
-            if (localStorage.getItem(KEYS.session) === 'true') {
-                isAdmin = true;
-                document.getElementById('btnAdmin').classList.add('active');
-                document.getElementById('btnPublic').classList.remove('active');
-                document.getElementById('publicView').classList.remove('active');
-                document.getElementById('adminView').classList.add('active');
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            try {
+                await loadSettingsFromCloud();
+                setupListeners();
+
+                if (localStorage.getItem('jw_admin_session') === 'true') {
+                    isAdmin = true;
+                    document.getElementById('btnAdmin').classList.add('active');
+                    document.getElementById('btnPublic').classList.remove('active');
+                    document.getElementById('publicView').classList.remove('active');
+                    document.getElementById('adminView').classList.add('active');
+                }
+
+                // Wait a moment for first data load
+                setTimeout(() => {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    dataLoaded = true;
+                }, 1500);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                showToast('error', 'Error de conexión', 'No se pudo conectar a la base de datos');
+            }
+        }
+
+        function setupListeners() {
+            db.collection('teachers').onSnapshot(snapshot => {
+                teachers = {};
+                snapshot.forEach(doc => { teachers[doc.id] = doc.data(); });
+                renderPublicSelect();
                 renderTeacherList();
+                populateFilterTeachers();
+                updateStats();
+            }, err => console.error('Teachers error:', err));
+
+            db.collection('records').orderBy('timestamp', 'desc').onSnapshot(snapshot => {
+                records = [];
+                snapshot.forEach(doc => { records.push({ id: doc.id, ...doc.data() }); });
+                renderPublicTable();
                 renderHistory();
                 updateStats();
-            }
+            }, err => console.error('Records error:', err));
+
+            db.collection('settings').doc('config').onSnapshot(doc => {
+                if (doc.exists) {
+                    settings = { ...settings, ...doc.data() };
+                    document.getElementById('adminLimitTime').value = settings.limitTime || '07:30';
+                }
+            }, err => console.error('Settings error:', err));
         }
 
-        // ==================== DATA PERSISTENCE ====================
-        function loadData() {
-            const t = localStorage.getItem(KEYS.teachers);
-            const r = localStorage.getItem(KEYS.records);
-            const s = localStorage.getItem(KEYS.settings);
-
-            if (t) teachers = JSON.parse(t);
-            else {
-                // Default teachers
-                teachers = {
-                    '101': { name: 'María Elena Vásquez', pin: '1010' },
-                    '102': { name: 'Carmen Rosa Díaz', pin: '1020' },
-                    '103': { name: 'Juana Patricia López', pin: '1030' },
-                    '104': { name: 'Ana Mercedes Castro', pin: '1040' },
-                    '105': { name: 'Rosa María Quispe', pin: '1050' },
-                    '106': { name: 'Luz Marina Huerta', pin: '1060' },
-                    '107': { name: 'Doris Esperanza Ruiz', pin: '1070' },
-                    '108': { name: 'Yolanda Irene Palacios', pin: '1080' }
-                };
-                saveTeachers();
+        async function loadSettingsFromCloud() {
+            const doc = await db.collection('settings').doc('config').get();
+            if (doc.exists) {
+                settings = { ...settings, ...doc.data() };
+            } else {
+                await db.collection('settings').doc('config').set(settings);
             }
-
-            if (r) records = JSON.parse(r);
-            if (s) settings = JSON.parse(s);
-            else {
-                settings = { limitTime: '07:30', adminPass: 'admin2026' };
-                saveSettings();
-            }
-
-            // Apply settings to inputs
-            document.getElementById('adminLimitTime').value = settings.limitTime;
+            document.getElementById('adminLimitTime').value = settings.limitTime || '07:30';
         }
 
-        function saveTeachers() { localStorage.setItem(KEYS.teachers, JSON.stringify(teachers)); }
-        function saveRecords() { localStorage.setItem(KEYS.records, JSON.stringify(records)); }
-        function saveSettings() { localStorage.setItem(KEYS.settings, JSON.stringify(settings)); }
-
-        // ==================== MODE SWITCHING ====================
         function switchMode(mode) {
             if (mode === 'public') {
                 document.getElementById('btnPublic').classList.add('active');
                 document.getElementById('btnAdmin').classList.remove('active');
                 document.getElementById('publicView').classList.add('active');
                 document.getElementById('adminView').classList.remove('active');
-                renderPublicSelect();
-                renderPublicTable();
             } else {
                 if (!isAdmin) {
                     document.getElementById('loginOverlay').classList.add('active');
@@ -594,8 +605,6 @@
                     document.getElementById('btnPublic').classList.remove('active');
                     document.getElementById('publicView').classList.remove('active');
                     document.getElementById('adminView').classList.add('active');
-                    renderTeacherList();
-                    renderHistory();
                     updateStats();
                 }
             }
@@ -610,18 +619,15 @@
         function loginAdmin() {
             const pass = document.getElementById('adminPassword').value.trim();
             const stored = settings.adminPass || 'admin2026';
-
             if (pass === stored) {
                 isAdmin = true;
-                localStorage.setItem(KEYS.session, 'true');
+                localStorage.setItem('jw_admin_session', 'true');
                 document.getElementById('loginOverlay').classList.remove('active');
                 document.getElementById('adminPassword').value = '';
                 document.getElementById('btnAdmin').classList.add('active');
                 document.getElementById('btnPublic').classList.remove('active');
                 document.getElementById('publicView').classList.remove('active');
                 document.getElementById('adminView').classList.add('active');
-                renderTeacherList();
-                renderHistory();
                 updateStats();
                 showToast('success', 'Bienvenido', 'Acceso administrativo concedido');
             } else {
@@ -633,41 +639,36 @@
 
         function logoutAdmin() {
             isAdmin = false;
-            localStorage.removeItem(KEYS.session);
+            localStorage.removeItem('jw_admin_session');
             switchMode('public');
             showToast('info', 'Sesión Cerrada', 'Ha salido del panel administrativo');
         }
 
-        function changeAdminPassword() {
+        async function changeAdminPassword() {
             const newPass = document.getElementById('newAdminPass').value.trim();
             if (!newPass || newPass.length < 4) {
                 showToast('error', 'Error', 'La contraseña debe tener al menos 4 caracteres');
                 return;
             }
             settings.adminPass = newPass;
-            saveSettings();
+            await db.collection('settings').doc('config').update({ adminPass: newPass });
             document.getElementById('newAdminPass').value = '';
-            showToast('success', 'Contraseña Actualizada', 'La nueva contraseña ha sido guardada');
+            showToast('success', 'Contraseña Actualizada', 'Guardada en la nube');
         }
 
-        // ==================== ADMIN TABS ====================
         function switchAdminTab(tab, el) {
             document.querySelectorAll('.admin-nav-item').forEach(i => i.classList.remove('active'));
             el.classList.add('active');
             document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
             document.getElementById('tab-' + tab).classList.add('active');
-
-            if (tab === 'teachers') renderTeacherList();
-            if (tab === 'history') { populateFilterTeachers(); renderHistory(); }
             if (tab === 'dashboard') updateStats();
+            if (tab === 'history') renderHistory();
         }
 
-        // ==================== CLOCK ====================
         function updateClock() {
             const now = new Date();
             document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('es-PE', { hour12: false });
             document.getElementById('dateDisplay').textContent = now.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
             const [lh, lm] = (settings.limitTime || '07:30').split(':').map(Number);
             const limit = new Date(now); limit.setHours(lh, lm, 0, 0);
             const badge = document.getElementById('statusBadge');
@@ -676,11 +677,10 @@
             else { badge.className = 'status-badge on-time'; txt.textContent = 'Horario Regular'; }
         }
 
-        // ==================== PUBLIC REGISTRATION ====================
         function renderPublicSelect() {
             const sel = document.getElementById('teacherSelect');
             sel.innerHTML = '<option value="" disabled selected>-- Elija una maestra --</option>';
-            Object.entries(teachers).forEach(([id, t]) => {
+            Object.entries(teachers).sort((a,b) => a[1].name.localeCompare(b[1].name)).forEach(([id, t]) => {
                 const opt = document.createElement('option');
                 opt.value = id; opt.textContent = t.name;
                 sel.appendChild(opt);
@@ -701,46 +701,57 @@
             return { id, name: teachers[id].name };
         }
 
-        function registerEntry() {
+        async function registerEntry() {
             const data = validatePublicInput(); if (!data) return;
             const now = new Date();
             const [lh, lm] = (settings.limitTime || '07:30').split(':').map(Number);
             const limit = new Date(now); limit.setHours(lh, lm, 0, 0);
             const isLate = now > limit;
 
-            records.push({
-                id: Date.now(), teacherId: data.id, teacherName: data.name,
+            const record = {
+                teacherId: data.id, teacherName: data.name,
                 type: 'Entrada', time: now.toLocaleTimeString('es-PE', { hour12: false }),
                 date: now.toLocaleDateString('es-PE'), isoDate: now.toISOString().split('T')[0],
                 status: isLate ? 'Tardanza' : 'A Tiempo',
                 statusClass: isLate ? 'tag-warning' : 'tag-success',
-                timestamp: now.getTime()
-            });
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
 
-            saveRecords(); renderPublicTable(); updateStats();
-            document.getElementById('pinInput').value = '';
-            showToast(isLate ? 'warning' : 'success', isLate ? 'Tardanza Registrada' : 'Entrada Registrada',
-                `${data.name} — ${records[records.length-1].time}`);
+            try {
+                await db.collection('records').add(record);
+                document.getElementById('pinInput').value = '';
+                showToast(isLate ? 'warning' : 'success', isLate ? 'Tardanza Registrada' : 'Entrada Registrada',
+                    `${data.name} — ${record.time}`);
+            } catch (e) {
+                showToast('error', 'Error', 'No se pudo guardar el registro');
+            }
         }
 
-        function registerExit() {
+        async function registerExit() {
             const data = validatePublicInput(); if (!data) return;
             const now = new Date();
-            records.push({
-                id: Date.now(), teacherId: data.id, teacherName: data.name,
+
+            const record = {
+                teacherId: data.id, teacherName: data.name,
                 type: 'Salida', time: now.toLocaleTimeString('es-PE', { hour12: false }),
                 date: now.toLocaleDateString('es-PE'), isoDate: now.toISOString().split('T')[0],
-                status: 'Completado', statusClass: 'tag-info', timestamp: now.getTime()
-            });
-            saveRecords(); renderPublicTable(); updateStats();
-            document.getElementById('pinInput').value = '';
-            showToast('success', 'Salida Registrada', `${data.name} — ${records[records.length-1].time}`);
+                status: 'Completado', statusClass: 'tag-info',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('records').add(record);
+                document.getElementById('pinInput').value = '';
+                showToast('success', 'Salida Registrada', `${data.name} — ${record.time}`);
+            } catch (e) {
+                showToast('error', 'Error', 'No se pudo guardar el registro');
+            }
         }
 
         function renderPublicTable() {
             const tbody = document.getElementById('recordsTableBody');
             const today = new Date().toLocaleDateString('es-PE');
-            const todayRec = records.filter(r => r.date === today).sort((a,b) => b.timestamp - a.timestamp);
+            const todayRec = records.filter(r => r.date === today);
 
             if (todayRec.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
@@ -756,7 +767,6 @@
                 </tr>`).join('');
         }
 
-        // ==================== TEACHER CRUD ====================
         function renderTeacherList() {
             const container = document.getElementById('teacherList');
             const items = Object.entries(teachers).sort((a,b) => a[1].name.localeCompare(b[1].name));
@@ -765,7 +775,7 @@
                 <div class="teacher-item fade-in">
                     <div class="teacher-info">
                         <div class="teacher-name">${t.name}</div>
-                        <div class="teacher-meta">Código: ${id} • PIN: ${t.pin}</div>
+                        <div class="teacher-meta">ID: ${id} • PIN: ${t.pin}</div>
                     </div>
                     <div class="teacher-actions">
                         <button class="btn btn-ghost btn-sm" onclick="editTeacher('${id}')"><span>✏️</span><span>Editar</span></button>
@@ -774,23 +784,26 @@
                 </div>`).join('');
         }
 
-        function addTeacher() {
+        async function addTeacher() {
             const name = document.getElementById('newTeacherName').value.trim();
             const pin = document.getElementById('newTeacherPin').value.trim();
             if (!name) { showToast('error', 'Error', 'Ingrese el nombre de la maestra'); return; }
-            if (!pin || pin.length < 2) { showToast('error', 'Error', 'El código PIN debe tener al menos 2 dígitos'); return; }
+            if (!pin || pin.length < 2) { showToast('error', 'Error', 'El PIN debe tener al menos 2 dígitos'); return; }
 
-            if (editingTeacherId) {
-                teachers[editingTeacherId] = { name, pin };
-                editingTeacherId = null;
-                showToast('success', 'Actualizado', `Datos de ${name} actualizados`);
-            } else {
-                const newId = String(Date.now()).slice(-4) + String(Math.floor(Math.random()*90)+10);
-                teachers[newId] = { name, pin };
-                showToast('success', 'Maestra Agregada', `${name} registrada con código ${newId}`);
+            try {
+                if (editingTeacherId) {
+                    await db.collection('teachers').doc(editingTeacherId).update({ name, pin });
+                    editingTeacherId = null;
+                    showToast('success', 'Actualizado', `Datos de ${name} actualizados`);
+                } else {
+                    const newId = String(Date.now()).slice(-6);
+                    await db.collection('teachers').doc(newId).set({ name, pin });
+                    showToast('success', 'Maestra Agregada', `${name} registrada con ID ${newId}`);
+                }
+                clearTeacherForm();
+            } catch (e) {
+                showToast('error', 'Error', 'No se pudo guardar en la nube');
             }
-
-            saveTeachers(); renderTeacherList(); renderPublicSelect(); clearTeacherForm(); updateStats();
         }
 
         function editTeacher(id) {
@@ -799,16 +812,19 @@
             document.getElementById('newTeacherName').value = t.name;
             document.getElementById('newTeacherPin').value = t.pin;
             editingTeacherId = id;
-            showToast('info', 'Modo Edición', `Editando a ${t.name}. Realice los cambios y presione Agregar.`);
+            showToast('info', 'Modo Edición', `Editando a ${t.name}`);
         }
 
-        function deleteTeacher(id) {
+        async function deleteTeacher(id) {
             const t = teachers[id];
             if (!t) return;
-            if (!confirm(`¿Eliminar a ${t.name} del sistema?`)) return;
-            delete teachers[id];
-            saveTeachers(); renderTeacherList(); renderPublicSelect(); updateStats();
-            showToast('success', 'Eliminada', `${t.name} ha sido removida del sistema`);
+            if (!confirm(`¿Eliminar a ${t.name}?`)) return;
+            try {
+                await db.collection('teachers').doc(id).delete();
+                showToast('success', 'Eliminada', `${t.name} removida`);
+            } catch (e) {
+                showToast('error', 'Error', 'No se pudo eliminar');
+            }
         }
 
         function clearTeacherForm() {
@@ -817,15 +833,15 @@
             editingTeacherId = null;
         }
 
-        // ==================== SETTINGS ====================
-        function saveSettings() {
+        async function saveSettings() {
             const time = document.getElementById('adminLimitTime').value;
-            if (time) settings.limitTime = time;
-            saveSettings();
-            showToast('success', 'Configuración Guardada', `Hora límite establecida en ${settings.limitTime}`);
+            if (time) {
+                settings.limitTime = time;
+                await db.collection('settings').doc('config').update({ limitTime: time });
+            }
+            showToast('success', 'Configuración Guardada', `Hora límite: ${settings.limitTime}`);
         }
 
-        // ==================== HISTORY & FILTERS ====================
         function populateFilterTeachers() {
             const sel = document.getElementById('filterTeacher');
             sel.innerHTML = '<option value="">Todas las maestras</option>';
@@ -844,7 +860,7 @@
             const tbody = document.getElementById('historyTableBody');
             const teacherFilter = document.getElementById('filterTeacher').value;
             const dateFilter = document.getElementById('filterDate').value;
-            let filtered = [...records].sort((a,b) => b.timestamp - a.timestamp);
+            let filtered = [...records];
 
             if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
             if (dateFilter) {
@@ -867,7 +883,6 @@
                 </tr>`).join('');
         }
 
-        // ==================== STATS ====================
         function updateStats() {
             const today = new Date().toLocaleDateString('es-PE');
             const todayRec = records.filter(r => r.date === today);
@@ -877,7 +892,6 @@
             document.getElementById('statTodayExits').textContent = todayRec.filter(r => r.type === 'Salida').length;
         }
 
-        // ==================== EXPORT EXCEL ====================
         function exportMonthlyReport() {
             if (records.length === 0) { showToast('error', 'Sin Datos', 'No hay registros para exportar'); return; }
             const data = records.map(r => ({
@@ -899,7 +913,6 @@
             showToast('success', 'Exportación Exitosa', `Archivo "${filename}" descargado`);
         }
 
-        // ==================== TOAST ====================
         function showToast(type, title, message) {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -910,7 +923,6 @@
             setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 400); }, 4000);
         }
 
-        // ==================== START ====================
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>

@@ -749,23 +749,23 @@
         }
 
         function renderPublicTable() {
-            const tbody = document.getElementById('recordsTableBody');
-            const today = new Date().toLocaleDateString('es-PE');
-            const todayRec = records.filter(r => r.date === today);
+    const tbody = document.getElementById('recordsTableBody');
+    const today = new Date().toLocaleDateString('es-PE');
+    const todayRec = records.filter(r => r.date === today);
 
-            if (todayRec.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
-                return;
-            }
-            tbody.innerHTML = todayRec.map(r => `
-                <tr class="fade-in">
-                    <td style="font-weight:500;">${r.teacherName}</td>
-                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
-                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
-                    <td>${r.date}</td>
-                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
-                </tr>`).join('');
-        }
+    if (todayRec.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros hoy</div><div style="font-size:0.85rem;margin-top:0.5rem;">Los registros aparecerán aquí automáticamente</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = todayRec.map(r => `
+        <tr class="fade-in">
+            <td style="font-weight:500;">${r.teacherName}</td>
+            <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+            <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+            <td>${r.date}</td>
+            <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+        </tr>`).join('');
+}
 
         function renderTeacherList() {
             const container = document.getElementById('teacherList');
@@ -857,32 +857,38 @@
         }
 
         function renderHistory() {
-            const tbody = document.getElementById('historyTableBody');
-            const teacherFilter = document.getElementById('filterTeacher').value;
-            const dateFilter = document.getElementById('filterDate').value;
-            let filtered = [...records];
+    const tbody = document.getElementById('historyTableBody');
+    const teacherFilter = document.getElementById('filterTeacher').value;
+    const dateFilter = document.getElementById('filterDate').value;
+    let filtered = [...records];
 
-            if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
-            if (dateFilter) {
-                const d = new Date(dateFilter);
-                const localDate = d.toLocaleDateString('es-PE');
-                filtered = filtered.filter(r => r.date === localDate);
-            }
+    // Filtro por maestra
+    if (teacherFilter) filtered = filtered.filter(r => r.teacherId === teacherFilter);
 
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros para los filtros seleccionados</div></td></tr>';
-                return;
-            }
-            tbody.innerHTML = filtered.map(r => `
-                <tr class="fade-in">
-                    <td style="font-weight:500;">${r.teacherName}</td>
-                    <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
-                    <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
-                    <td>${r.date}</td>
-                    <td><span class="tag ${r.statusClass}">${r.status}</span></td>
-                </tr>`).join('');
-        }
+    // Filtro por fecha - CORREGIDO para comparar correctamente
+    if (dateFilter) {
+        // Convertir YYYY-MM-DD del input a formato local peruano (D/M/YYYY o DD/MM/YYYY)
+        const [year, month, day] = dateFilter.split('-').map(Number);
+        // Crear fecha en formato local peruano (sin hora para evitar problemas de zona horaria)
+        const filterDateObj = new Date(year, month - 1, day);
+        const filterDateLocal = filterDateObj.toLocaleDateString('es-PE');
+        
+        filtered = filtered.filter(r => r.date === filterDateLocal);
+    }
 
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><div class="empty-state-icon">📭</div><div>No hay registros para los filtros seleccionados</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => `
+        <tr class="fade-in">
+            <td style="font-weight:500;">${r.teacherName}</td>
+            <td><span class="tag ${r.type==='Entrada'?'tag-info':'tag-danger'}" style="background:${r.type==='Entrada'?'rgba(10,36,99,0.1)':'rgba(217,4,41,0.1)'};color:${r.type==='Entrada'?'var(--primary)':'var(--secondary)'};">${r.type==='Entrada'?'⬇️':'⬆️'} ${r.type}</span></td>
+            <td style="font-family:monospace;font-size:0.95rem;">${r.time}</td>
+            <td>${r.date}</td>
+            <td><span class="tag ${r.statusClass}">${r.status}</span></td>
+        </tr>`).join('');
+}
         function updateStats() {
             const today = new Date().toLocaleDateString('es-PE');
             const todayRec = records.filter(r => r.date === today);
